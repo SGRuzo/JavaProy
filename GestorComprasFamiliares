@@ -1,0 +1,760 @@
+import java.util.*;
+
+// ---------------------------
+// MODELO (Model)
+// ---------------------------
+class Usuario {
+    private int id;
+    private String nombre;
+    private String email;
+    private String password;
+    private Familia familia;
+
+    public Usuario(int id, String nombre, String email, String password) {
+        this.id = id;
+        this.nombre = nombre;
+        this.email = email;
+        this.password = password;
+    }
+
+    // Getters y setters
+    public int getId() { return id; }
+    public String getNombre() { return nombre; }
+    public String getEmail() { return email; }
+    public Familia getFamilia() { return familia; }
+    public void setFamilia(Familia familia) { this.familia = familia; }
+    public String getPassword() { return password; }
+}
+
+class Familia {
+    private int id;
+    private String nombre;
+    private String codigo;
+    private List<Usuario> miembros;
+    private Map<Integer, Producto> productos;
+
+    public Familia(int id, String nombre, String codigo) {
+        this.id = id;
+        this.nombre = nombre;
+        this.codigo = codigo;
+        this.miembros = new ArrayList<>();
+        this.productos = new HashMap<>();
+    }
+
+    // Getters y setters
+    public int getId() { return id; }
+    public String getNombre() { return nombre; }
+    public String getCodigo() { return codigo; }
+    public List<Usuario> getMiembros() { return miembros; }
+    public Map<Integer, Producto> getProductos() { return productos; }
+
+    public void agregarMiembro(Usuario usuario) {
+        miembros.add(usuario);
+        usuario.setFamilia(this);
+    }
+    public void agregarProducto(Producto producto) {
+        productos.put(producto.getId(), producto);
+    }
+}
+
+class Producto {
+    private int id;
+    private String nombre;
+    private String marca;
+    private String categoria;
+    private Set<Supermercado> supermercados;
+    private double precio;
+    private String codigoBarras;
+
+    // Datos específicos por familia
+    private Map<Integer, Integer> stockPorFamilia;
+    private Map<Integer, Integer> minimoPorFamilia;
+    private Map<Integer, List<Comentario>> comentariosPorFamilia;
+    private Map<Integer, List<Double>> puntuacionesPorFamilia;
+
+    public Producto(int id, String nombre, String marca, String categoria) {
+        this.id = id;
+        this.nombre = nombre;
+        this.marca = marca;
+        this.categoria = categoria;
+        this.supermercados = new HashSet<>();
+        this.stockPorFamilia = new HashMap<>();
+        this.minimoPorFamilia = new HashMap<>();
+        this.comentariosPorFamilia = new HashMap<>();
+        this.puntuacionesPorFamilia = new HashMap<>();
+    }
+
+    // Getters y setters
+    public int getId() { return id; }
+    public String getNombre() { return nombre; }
+    public String getMarca() { return marca; }
+    public String getCategoria() { return categoria; }
+    public Set<Supermercado> getSupermercados() { return supermercados; }
+    public double getPrecio() { return precio; }
+    public int getMinimoParaFamilia(int familiaId) {
+        return minimoPorFamilia.getOrDefault(familiaId, 0);
+    }
+    public void setMinimoParaFamilia(int familiaId, int minimo) {
+        minimoPorFamilia.put(familiaId, minimo);
+    }
+    public void setPrecio(double precio) { this.precio = precio; }
+
+    // Métodos para manejar datos específicos por familia
+    public void setStockParaFamilia(int familiaId, int stock) {
+        stockPorFamilia.put(familiaId, stock);
+    }
+
+    public int getStockParaFamilia(int familiaId) {
+        return stockPorFamilia.getOrDefault(familiaId, 0);
+    }
+
+    public void agregarComentarioParaFamilia(int familiaId, Comentario comentario) {
+        comentariosPorFamilia.computeIfAbsent(familiaId, k -> new ArrayList<>()).add(comentario);
+    }
+
+    // ... otros métodos similares
+}
+
+class Supermercado {
+    private int id;
+    private String nombre;
+    private List<Producto> productos;
+    private Map<Integer, List<Double>> historialPrecios; // productoId -> lista de precios históricos
+
+    public Supermercado(int id, String nombre) {
+        this.id = id;
+        this.nombre = nombre;
+        this.productos = new ArrayList<>();
+        this.historialPrecios = new HashMap<>();
+    }
+
+    // Getters y setters
+    public int getId() { return id; }
+    public String getNombre() { return nombre; }
+    public List<Producto> getProductos() { return productos; }
+
+    public void agregarProducto(Producto producto) {
+        productos.add(producto);
+        producto.getSupermercados().add(this);
+    }
+
+    public void agregarPrecioHistorico(int productoId, double precio) {
+        historialPrecios.computeIfAbsent(productoId, k -> new ArrayList<>()).add(precio);
+    }
+}
+
+class Comentario {
+    private int usuarioId;
+    private String texto;
+    private Date fecha;
+
+    public Comentario(int usuarioId, String texto) {
+        this.usuarioId = usuarioId;
+        this.texto = texto;
+        this.fecha = new Date();
+    }
+
+    // Getters
+    public int getUsuarioId() { return usuarioId; }
+    public String getTexto() { return texto; }
+    public Date getFecha() { return fecha; }
+}
+
+class ListaCompra {
+    private int id;
+    private int familiaId;
+    private String nombre;
+    private Map<Integer, Integer> productosCantidad; // productoId -> cantidad
+    private boolean completada;
+
+    public ListaCompra(int id, int familiaId, String nombre) {
+        this.id = id;
+        this.familiaId = familiaId;
+        this.nombre = nombre;
+        this.productosCantidad = new HashMap<>();
+        this.completada = false;
+    }
+
+    // Getters y setters
+    public int getId() { return id; }
+    public String getNombre() { return nombre; }
+    public Map<Integer, Integer> getProductosCantidad() { return productosCantidad; }
+    public boolean isCompletada() { return completada; }
+    public void setCompletada(boolean completada) { this.completada = completada; }
+    public int getFamiliaId() { return familiaId; }
+
+    public void agregarProducto(int productoId, int cantidad) {
+        productosCantidad.put(productoId, productosCantidad.getOrDefault(productoId, 0) + cantidad);
+    }
+}
+
+// ---------------------------
+// VISTA (View)
+// ---------------------------
+interface Vista {
+    void mostrarMenuPrincipal();
+    void mostrarMenuUsuario();
+    void mostrarMenuFamilia();
+    void mostrarMenuProductos();
+    void mostrarMenuListaCompra();
+    void mostrarMensaje(String mensaje);
+    void mostrarError(String error);
+    String obtenerEntrada(String prompt);
+    int obtenerOpcionNumerica(String prompt, int min, int max);
+}
+
+class VistaConsola implements Vista {
+    private Scanner scanner = new Scanner(System.in);
+
+    @Override
+    public void mostrarMenuPrincipal() {
+        System.out.println("\n--- MENÚ PRINCIPAL ---");
+        System.out.println("1. Iniciar sesión");
+        System.out.println("2. Registrarse");
+        System.out.println("3. Salir");
+        System.out.print("Seleccione una opción: ");
+    }
+
+    @Override
+    public void mostrarMenuUsuario() {
+        System.out.println("\n--- MENÚ DE USUARIO ---");
+        System.out.println("1. Crear unidad familiar");
+        System.out.println("2. Unirse a unidad familiar");
+        System.out.println("3. Ver productos");
+        System.out.println("4. Administrar lista de compra");
+        System.out.println("5. Ver historial de precios");
+        System.out.println("6. Cerrar sesión");
+        System.out.print("Seleccione una opción: ");
+    }
+
+    @Override
+    public void mostrarMenuFamilia() {
+        System.out.println("\n--- GESTIÓN DE FAMILIA ---");
+        System.out.println("1. Ver miembros");
+        System.out.println("2. Agregar producto");
+        System.out.println("3. Editar producto");
+        System.out.println("4. Ver productos");
+        System.out.println("5. Volver al menú anterior");
+        System.out.print("Seleccione una opción: ");
+    }
+
+    @Override
+    public void mostrarMenuProductos() {
+        System.out.println("\n--- GESTIÓN DE PRODUCTOS ---");
+        System.out.println("1. Ver todos los productos");
+        System.out.println("2. Buscar por nombre");
+        System.out.println("3. Buscar por categoría");
+        System.out.println("4. Ver detalles de producto");
+        System.out.println("5. Volver al menú anterior");
+        System.out.print("Seleccione una opción: ");
+    }
+
+    @Override
+    public void mostrarMenuListaCompra() {
+        System.out.println("\n--- LISTA DE COMPRA ---");
+        System.out.println("1. Ver lista actual");
+        System.out.println("2. Crear nueva lista");
+        System.out.println("3. Agregar producto a lista");
+        System.out.println("4. Generar lista automática");
+        System.out.println("5. Marcar como completada");
+        System.out.println("6. Volver al menú anterior");
+        System.out.print("Seleccione una opción: ");
+    }
+
+    @Override
+    public void mostrarMensaje(String mensaje) {
+        System.out.println(mensaje);
+    }
+
+    @Override
+    public void mostrarError(String error) {
+        System.err.println("ERROR: " + error);
+    }
+
+    @Override
+    public String obtenerEntrada(String prompt) {
+        System.out.print(prompt);
+        return scanner.nextLine();
+    }
+
+    @Override
+    public int obtenerOpcionNumerica(String prompt, int min, int max) {
+        while (true) {
+            try {
+                System.out.print(prompt);
+                int opcion = Integer.parseInt(scanner.nextLine());
+                if (opcion >= min && opcion <= max) {
+                    return opcion;
+                } else {
+                    mostrarError("Opción inválida. Debe ser entre " + min + " y " + max);
+                }
+            } catch (NumberFormatException e) {
+                mostrarError("Entrada inválida. Por favor ingrese un número.");
+            }
+        }
+    }
+}
+
+// ---------------------------
+// CONTROLADOR (Controller)
+// ---------------------------
+class Controlador {
+    private Vista vista;
+    private Modelo modelo;
+    private Usuario usuarioActual;
+
+    public Controlador(Vista vista, Modelo modelo) {
+        this.vista = vista;
+        this.modelo = modelo;
+    }
+
+    public void iniciar() {
+        int opcion;
+        do {
+            vista.mostrarMenuPrincipal();
+            opcion = vista.obtenerOpcionNumerica("", 1, 3);
+
+            switch (opcion) {
+                case 1: iniciarSesion(); break;
+                case 2: registrarUsuario(); break;
+                case 3: vista.mostrarMensaje("Saliendo del sistema..."); break;
+            }
+        } while (opcion != 3);
+    }
+
+    private void iniciarSesion() {
+        String email = vista.obtenerEntrada("Email: ");
+        String password = vista.obtenerEntrada("Contraseña: ");
+
+        usuarioActual = modelo.autenticarUsuario(email, password);
+        if (usuarioActual != null) {
+            vista.mostrarMensaje("Bienvenido, " + usuarioActual.getNombre() + "!");
+            menuUsuario();
+        } else {
+            vista.mostrarError("Credenciales inválidas");
+        }
+    }
+
+    private void marcarListaCompletada() {
+        ListaCompra lista = modelo.obtenerListaActual(usuarioActual.getFamilia().getId());
+        if (lista != null) {
+            modelo.marcarListaCompletada(lista.getId());
+            vista.mostrarMensaje("Lista marcada como completada");
+        }
+    }
+
+    private void verListaActual() {
+        // Implementación básica
+        ListaCompra lista = modelo.obtenerListaActual(usuarioActual.getFamilia().getId());
+        if (lista != null) {
+            verListaDetalle(lista);
+        } else {
+            vista.mostrarMensaje("No hay lista activa");
+        }
+    }
+
+    private void crearNuevaLista() {
+        String nombre = vista.obtenerEntrada("Nombre de la lista: ");
+        ListaCompra lista = modelo.crearListaCompra(usuarioActual.getFamilia().getId(), nombre);
+        vista.mostrarMensaje("Lista creada: " + lista.getNombre());
+    }
+
+    // Implementar métodos restantes de manera similar
+
+    private void registrarUsuario() {
+        String nombre = vista.obtenerEntrada("Nombre completo: ");
+        String email = vista.obtenerEntrada("Email: ");
+        String password = vista.obtenerEntrada("Contraseña: ");
+        String confirmPassword = vista.obtenerEntrada("Confirmar contraseña: ");
+
+        if (!password.equals(confirmPassword)) {
+            vista.mostrarError("Las contraseñas no coinciden");
+            return;
+        }
+
+        usuarioActual = modelo.registrarUsuario(nombre, email, password);
+        if (usuarioActual != null) {
+            vista.mostrarMensaje("Registro exitoso. Ahora puedes iniciar sesión.");
+        } else {
+            vista.mostrarError("Error al registrar usuario");
+        }
+    }
+
+    private void menuUsuario() {
+        int opcion;
+        do {
+            vista.mostrarMenuUsuario();
+            opcion = vista.obtenerOpcionNumerica("", 1, 6);
+
+            switch (opcion) {
+                case 1: crearFamilia(); break;
+                case 2: unirseAFamilia(); break;
+                case 3: gestionarProductos(); break;
+                case 4: gestionarListaCompra(); break;
+                case 5: verHistorialPrecios(); break;
+                case 6:
+                    vista.mostrarMensaje("Cerrando sesión...");
+                    usuarioActual = null;
+                    break;
+            }
+        } while (opcion != 6 && usuarioActual != null);
+    }
+
+    private void crearFamilia() {
+        String nombreFamilia = vista.obtenerEntrada("Nombre de la familia: ");
+        Familia familia = modelo.crearFamilia(nombreFamilia);
+
+        if (familia != null) {
+            modelo.agregarUsuarioAFamilia(usuarioActual.getId(), familia.getId());
+            // Actualizar la familia del usuario actual
+            usuarioActual.setFamilia(familia);
+            vista.mostrarMensaje("Familia creada con éxito! Código: " + familia.getCodigo());
+        } else {
+            vista.mostrarError("Error al crear familia");
+        }
+    }
+
+    private void unirseAFamilia() {
+        String codigo = vista.obtenerEntrada("Ingrese el código de familia: ");
+        Familia familia = modelo.buscarFamiliaPorCodigo(codigo);
+
+        if (familia != null) {
+            modelo.agregarUsuarioAFamilia(usuarioActual.getId(), familia.getId());
+            // Actualizar la familia del usuario actual
+            usuarioActual.setFamilia(familia);
+            vista.mostrarMensaje("Te has unido a la familia: " + familia.getNombre());
+        } else {
+            vista.mostrarError("Código de familia inválido");
+        }
+    }
+
+    private void gestionarProductos() {
+        if (usuarioActual.getFamilia() == null) {
+            vista.mostrarError("Debes pertenecer a una familia para gestionar productos");
+            return;
+        }
+
+        int opcion;
+        do {
+            vista.mostrarMenuProductos();
+            opcion = vista.obtenerOpcionNumerica("", 1, 5);
+
+            switch (opcion) {
+                case 1: verTodosProductos(); break;
+                case 2: buscarProductoPorNombre(); break;
+                case 3: buscarProductoPorCategoria(); break;
+                case 4: verDetalleProducto(); break;
+                case 5: break; // Solo salir del bucle
+            }
+        } while (opcion != 5); // Corregido para salir con opción 5
+    }
+
+    private void verTodosProductos() {
+        List<Producto> productos = modelo.obtenerTodosProductos();
+        if (productos.isEmpty()) {
+            vista.mostrarMensaje("No hay productos disponibles");
+        } else {
+            vista.mostrarMensaje("\n--- LISTA DE PRODUCTOS ---");
+            for (Producto p : productos) {
+                vista.mostrarMensaje(p.getId() + ". " + p.getNombre() + " - " + p.getMarca());
+            }
+        }
+    }
+
+    private void buscarProductoPorNombre() {
+        String nombre = vista.obtenerEntrada("Nombre a buscar: ");
+        List<Producto> resultados = modelo.buscarProductosPorNombre(nombre);
+        // Mostrar resultados
+    }
+
+    private void gestionarListaCompra() {
+        if (usuarioActual.getFamilia() == null) {
+            vista.mostrarError("Debes pertenecer a una familia para gestionar listas de compra");
+            return;
+        }
+
+        int opcion;
+        do {
+            vista.mostrarMenuListaCompra();
+            opcion = vista.obtenerOpcionNumerica("", 1, 6);
+
+            switch (opcion) {
+                case 1: verListaActual(); break;
+                case 2: crearNuevaLista(); break;
+                case 3: agregarProductoALista(); break;
+                case 4: generarListaAutomatica(); break;
+                case 5: marcarListaCompletada(); break;
+            }
+        } while (opcion != 6);
+    }
+
+    private void generarListaAutomatica() {
+        ListaCompra lista = modelo.generarListaAutomatica(usuarioActual.getFamilia().getId());
+        if (lista != null) {
+            vista.mostrarMensaje("Lista generada automáticamente: " + lista.getNombre());
+            verListaDetalle(lista);
+        } else {
+            vista.mostrarError("No se pudo generar la lista automática");
+        }
+    }
+
+    private void verListaDetalle(ListaCompra lista) {
+        vista.mostrarMensaje("\n--- " + lista.getNombre() + " ---");
+        for (Map.Entry<Integer, Integer> entry : lista.getProductosCantidad().entrySet()) {
+            Producto p = modelo.obtenerProductoPorId(entry.getKey());
+            vista.mostrarMensaje("- " + p.getNombre() + ": " + entry.getValue() + " unidades");
+        }
+    }
+    private void verHistorialPrecios() {
+        vista.mostrarMensaje("Funcionalidad de historial de precios no implementada aún");
+    }
+
+    private void agregarProductoALista() {
+        if (usuarioActual.getFamilia() == null) {
+            vista.mostrarError("Debes pertenecer a una familia");
+            return;
+        }
+
+        int productoId = vista.obtenerOpcionNumerica("ID del producto: ", 1, 1000);
+        int cantidad = vista.obtenerOpcionNumerica("Cantidad: ", 1, 100);
+
+        ListaCompra lista = modelo.obtenerListaActual(usuarioActual.getFamilia().getId());
+        if (lista != null) {
+            modelo.agregarProductoALista(lista.getId(), productoId, cantidad);
+            vista.mostrarMensaje("Producto agregado a la lista");
+        } else {
+            vista.mostrarError("No hay lista activa");
+        }
+    }
+
+    private void verDetalleProducto() {
+        int id = vista.obtenerOpcionNumerica("ID del producto: ", 1, 1000);
+        Producto p = modelo.obtenerProductoPorId(id);
+        if (p != null) {
+            vista.mostrarMensaje("\n--- DETALLE DE PRODUCTO ---");
+            vista.mostrarMensaje("Nombre: " + p.getNombre());
+            vista.mostrarMensaje("Marca: " + p.getMarca());
+            vista.mostrarMensaje("Categoría: " + p.getCategoria());
+            vista.mostrarMensaje("Precio: €" + p.getPrecio());
+        } else {
+            vista.mostrarError("Producto no encontrado");
+        }
+    }
+
+    private void buscarProductoPorCategoria() {
+        String categoria = vista.obtenerEntrada("Categoría a buscar: ");
+        List<Producto> resultados = modelo.buscarProductosPorCategoria(categoria);
+        if (resultados.isEmpty()) {
+            vista.mostrarMensaje("No se encontraron productos");
+        } else {
+            vista.mostrarMensaje("\n--- RESULTADOS DE BÚSQUEDA ---");
+            for (Producto p : resultados) {
+                vista.mostrarMensaje(p.getId() + ". " + p.getNombre() + " - " + p.getMarca());
+            }
+        }
+    }
+    // ... otros métodos del controlador
+}
+
+// ---------------------------
+// MODELO (Model)
+// ---------------------------
+class Modelo {
+    // Datos simulados (en una aplicación real se conectaría a una base de datos)
+    private Map<Integer, Usuario> usuarios = new HashMap<>();
+    private Map<Integer, Familia> familias = new HashMap<>();
+    private Map<Integer, Producto> productos = new HashMap<>();
+    private Map<Integer, ListaCompra> listasCompra = new HashMap<>();
+    private Map<Integer, Supermercado> supermercados = new HashMap<>();
+
+    private int usuarioIdCounter = 1;
+    private int familiaIdCounter = 1;
+    private int productoIdCounter = 1;
+    private int listaIdCounter = 1;
+    private int supermercadoIdCounter = 1;
+
+    public Modelo() {
+        // Inicializar con algunos datos de ejemplo
+        inicializarDatosEjemplo();
+        
+    }
+
+    public List<Producto> buscarProductosPorNombre(String nombre) {
+        List<Producto> resultados = new ArrayList<>();
+        for (Producto p : productos.values()) {
+            if (p.getNombre().toLowerCase().contains(nombre.toLowerCase())) {
+                resultados.add(p);
+            }
+        }
+        return resultados;
+    }
+
+    private void inicializarDatosEjemplo() {
+        // Crear supermercados
+        Supermercado mercadona = new Supermercado(supermercadoIdCounter++, "Mercadona");
+        Supermercado carrefour = new Supermercado(supermercadoIdCounter++, "Carrefour");
+        supermercados.put(mercadona.getId(), mercadona);
+        supermercados.put(carrefour.getId(), carrefour);
+
+        // Crear productos
+        Producto aceite = new Producto(productoIdCounter++, "Aceite de Oliva", "Carbonell", "Aceites");
+        aceite.getSupermercados().add(mercadona);
+        aceite.getSupermercados().add(carrefour);
+        aceite.setPrecio(7.99);
+        productos.put(aceite.getId(), aceite);
+
+        Producto leche = new Producto(productoIdCounter++, "Leche Semidesnatada", "Puleva", "Lácteos");
+        leche.getSupermercados().add(mercadona);
+        leche.setPrecio(0.99);
+        productos.put(leche.getId(), leche);
+
+        // Agregar productos a supermercados
+        mercadona.agregarProducto(aceite);
+        mercadona.agregarProducto(leche);
+        carrefour.agregarProducto(aceite);
+
+        // Crear familia de ejemplo
+        Familia familiaEjemplo = new Familia(familiaIdCounter++, "Familia Ejemplo", "FAM-123");
+        familias.put(familiaEjemplo.getId(), familiaEjemplo);
+
+        // Agregar productos a la familia de ejemplo
+        familiaEjemplo.agregarProducto(aceite);
+        familiaEjemplo.agregarProducto(leche);
+
+        // Establecer stock y mínimo para la familia de ejemplo
+        aceite.setStockParaFamilia(familiaEjemplo.getId(), 2);
+        aceite.setMinimoParaFamilia(familiaEjemplo.getId(), 5);
+
+        leche.setStockParaFamilia(familiaEjemplo.getId(), 3);
+        leche.setMinimoParaFamilia(familiaEjemplo.getId(), 5);
+
+        // Crear usuario de ejemplo
+        Usuario usuarioEjemplo = new Usuario(usuarioIdCounter++, "Usuario Ejemplo", "ejemplo@test.com", "password");
+        usuarios.put(usuarioEjemplo.getId(), usuarioEjemplo);
+        familiaEjemplo.agregarMiembro(usuarioEjemplo);
+    }
+
+    public ListaCompra obtenerListaActual(int familiaId) {
+        for (ListaCompra lista : listasCompra.values()) {
+            if (lista.getFamiliaId() == familiaId && !lista.isCompletada()) {
+                return lista;
+            }
+        }
+        return null;
+    }
+
+    public void marcarListaCompletada(int listaId) {
+        ListaCompra lista = listasCompra.get(listaId);
+        if (lista != null) {
+            lista.setCompletada(true);
+        }
+    }
+
+    public Usuario autenticarUsuario(String email, String password) {
+        for (Usuario u : usuarios.values()) {
+            if (u.getEmail().equals(email) && u.getPassword().equals(password)) {
+                return u;
+            }
+        }
+        return null;
+    }
+
+    public Usuario registrarUsuario(String nombre, String email, String password) {
+        Usuario usuario = new Usuario(usuarioIdCounter++, nombre, email, password);
+        usuarios.put(usuario.getId(), usuario);
+        return usuario;
+    }
+
+    public Familia crearFamilia(String nombre) {
+        String codigo = "FAM" + familiaIdCounter + System.currentTimeMillis();
+        Familia familia = new Familia(familiaIdCounter++, nombre, codigo);
+        familias.put(familia.getId(), familia);
+        return familia;
+    }
+
+    public Familia buscarFamiliaPorCodigo(String codigo) {
+        for (Familia f : familias.values()) {
+            if (f.getCodigo().equals(codigo)) {
+                return f;
+            }
+        }
+        return null;
+    }
+
+    public void agregarUsuarioAFamilia(int usuarioId, int familiaId) {
+        Usuario usuario = usuarios.get(usuarioId);
+        Familia familia = familias.get(familiaId);
+
+        if (usuario != null && familia != null) {
+            familia.agregarMiembro(usuario);
+        }
+    }
+
+    public List<Producto> obtenerTodosProductos() {
+        return new ArrayList<>(productos.values());
+    }
+
+    public Producto obtenerProductoPorId(int id) {
+        return productos.get(id);
+    }
+
+    public ListaCompra generarListaAutomatica(int familiaId) {
+        Familia familia = familias.get(familiaId);
+        if (familia == null) return null;
+
+        ListaCompra lista = new ListaCompra(listaIdCounter++, familiaId, "Lista Automática");
+
+        // Lógica para generar lista automática basada en:
+        // - Productos con stock por debajo del mínimo
+        // - Precios más económicos
+        // - Preferencias de la familia
+        for (Producto p : familia.getProductos().values()) {
+            int stockActual = p.getStockParaFamilia(familiaId);
+            int stockMinimo = p.getMinimoParaFamilia(familiaId);
+
+            if (stockActual < stockMinimo) {
+                int cantidadNecesaria = stockMinimo - stockActual;
+                lista.agregarProducto(p.getId(), cantidadNecesaria);
+            }
+        }
+
+        listasCompra.put(lista.getId(), lista);
+        return lista;
+    }
+    public ListaCompra crearListaCompra(int familiaId, String nombre) {
+        ListaCompra lista = new ListaCompra(listaIdCounter++, familiaId, nombre);
+        listasCompra.put(lista.getId(), lista);
+        return lista;
+    }
+
+    public void agregarProductoALista(int listaId, int productoId, int cantidad) {
+        ListaCompra lista = listasCompra.get(listaId);
+        if (lista != null) {
+            lista.agregarProducto(productoId, cantidad);
+        }
+    }
+
+    public List<Producto> buscarProductosPorCategoria(String categoria) {
+        List<Producto> resultados = new ArrayList<>();
+        for (Producto p : productos.values()) {
+            if (p.getCategoria().equalsIgnoreCase(categoria)) {
+                resultados.add(p);
+            }
+        }
+        return resultados;
+    }
+    // ... otros métodos del modelo
+}
+
+// ---------------------------
+// CLASE PRINCIPAL
+// ---------------------------
+public class GestorComprasFamiliares {
+    public static void main(String[] args) {
+        Vista vista = new VistaConsola();
+        Modelo modelo = new Modelo();
+        Controlador controlador = new Controlador(vista, modelo);
+
+        controlador.iniciar();
+    }
+}
